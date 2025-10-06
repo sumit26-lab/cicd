@@ -31,8 +31,9 @@ jobs:
       # --------------------------------------------------------
       # Step 3: Deploy code to VM
       # --------------------------------------------------------
-      # This step connects to your VM, pulls latest code, installs dependencies,
-      # sets environment variables, and starts your app using nohup.
+      # This step connects to your VM, ensures the repo exists,
+      # pulls latest code, installs dependencies, exports env vars,
+      # and runs your FastAPI app with nohup.
       # --------------------------------------------------------
       - name: Deploy FastAPI to VM
         run: |
@@ -40,24 +41,42 @@ jobs:
             set -e  # exit on any error
             echo "🚀 Starting deployment on server..."
 
-            # Navigate to your project folder (adjust as needed)
-            cd ${{ secrets.PROJECT_PATH }}
+            # Define variables
+            PROJECT_PATH=${{ secrets.PROJECT_PATH }}
+            REPO_URL="git@github.com:mohneeshchoudhary/cicd.git"
+
+            # If project folder doesn't exist, clone it
+            if [ ! -d "$PROJECT_PATH" ]; then
+              echo "📂 Project folder not found. Cloning fresh..."
+              mkdir -p $(dirname "$PROJECT_PATH")
+              cd $(dirname "$PROJECT_PATH")
+              git clone $REPO_URL $(basename "$PROJECT_PATH")
+            fi
+
+            # Navigate to project directory
+            cd "$PROJECT_PATH"
 
             # Pull latest code
             echo "📥 Pulling latest code..."
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
-            # Install dependencies
+            # Create virtual environment (if not exists) and install dependencies
             echo "📦 Installing dependencies..."
             python3 -m venv venv
             source venv/bin/activate
+            pip install --upgrade pip
             pip install -r requirements.txt
 
-            # Export environment variables
-            echo "🔐 Setting environment variables..."
-            export $(cat .env | xargs)
+            # Export environment variables (from .env)
+            if [ -f ".env" ]; then
+              echo "🔐 Loading environment variables from .env"
+              export $(cat .env | xargs)
+            else
+              echo "⚠️ Warning: .env file not found in project folder!"
+            fi
 
-            # Kill previous FastAPI process (if any)
+            # Stop previous FastAPI process if running
             echo "🛑 Stopping existing FastAPI app (if running)..."
             pkill -f "python3 main.py" || true
 
