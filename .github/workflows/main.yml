@@ -12,16 +12,13 @@ jobs:
 
     steps:
       # --------------------------------------------------------
-      # Step 1: Checkout the latest code from your repo
+      # Step 1: Checkout latest code (required for GitHub context)
       # --------------------------------------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
       # --------------------------------------------------------
-      # Step 2: Setup SSH connection
-      # --------------------------------------------------------
-      # You will add your VM private key as a GitHub secret: SSH_PRIVATE_KEY
-      # and your server IP, username, and project path as secrets as well.
+      # Step 2: Setup SSH agent using private key stored in secrets
       # --------------------------------------------------------
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -29,60 +26,64 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       # --------------------------------------------------------
-      # Step 3: Deploy code to VM
-      # --------------------------------------------------------
-      # This step connects to your VM, ensures the repo exists,
-      # pulls latest code, installs dependencies, exports env vars,
-      # and runs your FastAPI app with nohup.
+      # Step 3: Deploy FastAPI App to Ubuntu VM
       # --------------------------------------------------------
       - name: Deploy FastAPI to VM
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            set -e  # exit on any error
+            set -e  # Exit immediately if a command fails
             echo "🚀 Starting deployment on server..."
 
-            # Define variables
-            PROJECT_PATH=${{ secrets.PROJECT_PATH }}
-            REPO_URL="git@github.com:mohneeshchoudhary/cicd.git"
+            # Define paths and repo info
+            BASE_PATH=${{ secrets.PROJECT_PATH }}         # e.g., /home/azureuser
+            PROJECT_DIR="$BASE_PATH/cicd"
+            REPO_URL="https://github.com/mohneeshchoudhary/cicd.git"
 
-            # If project folder doesn't exist, clone it
-            if [ ! -d "$PROJECT_PATH" ]; then
-              echo "📂 Project folder not found. Cloning fresh..."
-              mkdir -p $(dirname "$PROJECT_PATH")
-              cd $(dirname "$PROJECT_PATH")
-              git clone $REPO_URL $(basename "$PROJECT_PATH")
+            # --------------------------------------------------------
+            # Check if repo folder exists
+            # --------------------------------------------------------
+            if [ -d "$PROJECT_DIR/.git" ]; then
+              echo "📂 Project already exists. Pulling latest changes..."
+              cd "$PROJECT_DIR"
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              echo "🆕 Project not found. Cloning fresh repository..."
+              cd "$BASE_PATH"
+              git clone $REPO_URL cicd
+              cd cicd
             fi
 
-            # Navigate to project directory
-            cd "$PROJECT_PATH"
-
-            # Pull latest code
-            echo "📥 Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
-
-            # Create virtual environment (if not exists) and install dependencies
-            echo "📦 Installing dependencies..."
+            # --------------------------------------------------------
+            # Create or activate virtual environment and install dependencies
+            # --------------------------------------------------------
+            echo "📦 Setting up Python environment..."
             python3 -m venv venv
             source venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt
 
-            # Export environment variables (from .env)
+            # --------------------------------------------------------
+            # Load environment variables (if .env exists)
+            # --------------------------------------------------------
             if [ -f ".env" ]; then
-              echo "🔐 Loading environment variables from .env"
+              echo "🔐 Loading environment variables..."
               export $(cat .env | xargs)
             else
-              echo "⚠️ Warning: .env file not found in project folder!"
+              echo "⚠️ No .env file found, skipping variable loading."
             fi
 
-            # Stop previous FastAPI process if running
-            echo "🛑 Stopping existing FastAPI app (if running)..."
+            # --------------------------------------------------------
+            # Stop existing FastAPI process (if running)
+            # --------------------------------------------------------
+            echo "🛑 Stopping existing FastAPI process..."
             pkill -f "python3 main.py" || true
 
-            # Start app in background with nohup
-            echo "🚀 Starting FastAPI app..."
+            # --------------------------------------------------------
+            # Start app in background using nohup
+            # --------------------------------------------------------
+            echo "🚀 Starting FastAPI app with nohup..."
             nohup venv/bin/python3 main.py > app.log 2>&1 &
 
-            echo "✅ Deployment complete!"
+            echo "✅ Deployment complete! Check app.log for details."
           EOF
