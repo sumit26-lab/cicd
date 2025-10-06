@@ -30,12 +30,12 @@ jobs:
       # --------------------------------------------------------
       - name: Deploy FastAPI to VM
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }} << 'EOF'
             set -e  # Exit immediately if a command fails
             echo "🚀 Starting deployment on server..."
 
             # Define paths and repo info
-            BASE_PATH=${{ secrets.PROJECT_PATH }}         # e.g., /home/azureuser
+            BASE_PATH=${{ vars.PROJECT_PATH }}         # e.g., /home/azureuser
             PROJECT_DIR="$BASE_PATH/cicd"
             REPO_URL="https://github.com/mohneeshchoudhary/cicd.git"
 
