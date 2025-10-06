@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------------------------------------
+      # -----------------------------------------------------
       # Step 1: Checkout latest code (required for GitHub context)
       # --------------------------------------------------------
       - name: Checkout code
