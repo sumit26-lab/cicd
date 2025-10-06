@@ -1,0 +1,69 @@
+name: Deploy FastAPI App
+
+on:
+  push:
+    branches:
+      - main   # 👈 triggers only when you push to the 'main' branch
+
+jobs:
+  deploy:
+    name: Deploy to Ubuntu VM
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------------------------------------
+      # Step 1: Checkout the latest code from your repo
+      # --------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Step 2: Setup SSH connection
+      # --------------------------------------------------------
+      # You will add your VM private key as a GitHub secret: SSH_PRIVATE_KEY
+      # and your server IP, username, and project path as secrets as well.
+      # --------------------------------------------------------
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # --------------------------------------------------------
+      # Step 3: Deploy code to VM
+      # --------------------------------------------------------
+      # This step connects to your VM, pulls latest code, installs dependencies,
+      # sets environment variables, and starts your app using nohup.
+      # --------------------------------------------------------
+      - name: Deploy FastAPI to VM
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e  # exit on any error
+            echo "🚀 Starting deployment on server..."
+
+            # Navigate to your project folder (adjust as needed)
+            cd ${{ secrets.PROJECT_PATH }}
+
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            # Export environment variables
+            echo "🔐 Setting environment variables..."
+            export $(cat .env | xargs)
+
+            # Kill previous FastAPI process (if any)
+            echo "🛑 Stopping existing FastAPI app (if running)..."
+            pkill -f "python3 main.py" || true
+
+            # Start app in background with nohup
+            echo "🚀 Starting FastAPI app..."
+            nohup venv/bin/python3 main.py > app.log 2>&1 &
+
+            echo "✅ Deployment complete!"
+          EOF
