@@ -35,7 +35,7 @@ jobs:
             echo "🚀 Starting deployment on server..."
 
             # Define paths and repo info
-            BASE_PATH=${{ vars.PROJECT_PATH }}         # e.g., /home/azureuser
+            BASE_PATH=${{ secrets.PROJECT_PATH }}         # e.g., /home/azureuser
             PROJECT_DIR="$BASE_PATH/cicd"
             echo "Base path is: $BASE_PATH"
             echo "Project directory is: $PROJECT_DIR"
