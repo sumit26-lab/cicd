@@ -53,6 +53,14 @@ jobs:
               git clone $REPO_URL cicd
               cd cicd
             fi
+            
+            # ---------------------------------------------------------
+               # Install python3-venv package if not already installed
+            # ----------------------------------------------------------
+              sudo apt-get upadte 
+              sudo apt-get install -y python3.12-venv  
+               
+
 
             # --------------------------------------------------------
             # Create or activate virtual environment and install dependencies
